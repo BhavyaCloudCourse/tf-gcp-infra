@@ -1,13 +1,8 @@
-provider "google" {
-
-  project = var.project_id
-  region  = var.region
-}
-
 resource "google_compute_network" "vpc_network" {
-  name                    = var.vpc_name
-  auto_create_subnetworks = false
-  routing_mode            = "REGIONAL"
+  name                            = var.vpc_name
+  auto_create_subnetworks         = false
+  routing_mode                    = "REGIONAL"
+  delete_default_routes_on_create = true
 }
 
 resource "google_compute_subnetwork" "webapp_subnet" {
@@ -28,8 +23,9 @@ resource "google_compute_subnetwork" "db_subnet" {
 resource "google_compute_route" "webapp_route" {
   name             = "webapp-route"
   network          = google_compute_network.vpc_network.self_link
-  dest_range       = "0.0.0.0/0" 
+  dest_range       = "0.0.0.0/0"
   next_hop_gateway = "default-internet-gateway"
   priority         = 1000
   description      = "Route for webapp subnet"
+  tags             = ["webapp"]
 }
