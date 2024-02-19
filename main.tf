@@ -24,3 +24,40 @@ resource "google_compute_route" "webapp_route" {
   description      = "Route for webapp subnet"
   tags             = ["webapp"]
 }
+
+# Create firewall rule 
+resource "google_compute_firewall" "app_firewall" {
+  for_each = var.vpcs
+  name     = "allow-app-traffic"
+  network  = google_compute_network.vpc_network[each.key].self_link
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8080"]
+  }
+
+
+  source_ranges = ["0.0.0.0/0"]
+}
+
+# Create compute instance
+resource "google_compute_instance" "my_instance" {
+  for_each     = var.vpcs
+  name         = "my-instance"
+  machine_type = "e2-standard-2"
+  zone       = "us-east1-b"
+
+  boot_disk {
+    initialize_params {
+      image = "packer-1708328426"
+      # type  = "pd-balance"
+      size  = 100
+    }
+  }
+
+  network_interface {
+    network = google_compute_network.vpc_network[each.key].self_link
+    subnetwork = "webapp"
+    access_config {}
+  }
+}
