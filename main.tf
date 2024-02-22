@@ -12,8 +12,9 @@ resource "google_compute_subnetwork" "subnet" {
   }
   name          = each.value.subnet_key
   ip_cidr_range = each.value.cidr
-  region        = each.value.region
   network       = each.value.network
+  region        = each.value.region
+
 }
 resource "google_compute_route" "webapp_route" {
   for_each         = var.vpcs
@@ -22,42 +23,69 @@ resource "google_compute_route" "webapp_route" {
   dest_range       = each.value.dest_range
   next_hop_gateway = each.value.next_hop_gateway
   description      = "Route for webapp subnet"
-  tags             = ["webapp"]
+  tags             = var.webapp_route_tag
 }
 
-# Create firewall rule 
-resource "google_compute_firewall" "app_firewall" {
-  for_each = var.vpcs
-  name     = "allow-app-traffic"
-  network  = google_compute_network.vpc_network[each.key].self_link
+data "google_compute_image" "custom_image" {
+  project     = var.project_id
+  most_recent = true
+  family      = var.custom_image_family
+}
+
+resource "google_compute_firewall" "allow_http_8080" {
+  for_each  = var.vpcs
+  name      = var.firewall_allow_name
+  network   = google_compute_network.vpc_network[each.key].self_link
+  priority  = 1000
+  direction = var.firewall_direction
+
+
+  source_ranges      = var.source_ranges
+  destination_ranges = var.destination_ranges
+
+  target_tags = var.allow_target_tags
 
   allow {
-    protocol = "tcp"
-    ports    = ["8080"]
+    protocol = var.protocol
+    ports    = var.allow_ports
   }
-
-
-  source_ranges = ["0.0.0.0/0"]
 }
 
-# Create compute instance
-resource "google_compute_instance" "my_instance" {
-  for_each     = var.vpcs
-  name         = "my-instance"
-  machine_type = "e2-standard-2"
-  zone       = "us-east1-b"
+resource "google_compute_firewall" "block_ssh" {
+  for_each  = var.vpcs
+  name      = var.firewall_deny_name
+  network   = google_compute_network.vpc_network[each.key].self_link
+  priority  = 1001
+  direction = var.firewall_direction
+
+  source_ranges      = var.source_ranges
+  destination_ranges = var.destination_ranges
+
+  target_tags = var.disallow_target_tags
+  deny {
+    protocol = var.protocol
+    ports    = var.disallow_ports
+  }
+}
+
+resource "google_compute_instance" "instance" {
+  name         = var.instance_name
+  machine_type = var.instance_machinetype
+  zone         = var.instance_zone
 
   boot_disk {
     initialize_params {
-      image = "packer-1708328426"
-      # type  = "pd-balance"
-      size  = 100
+      image = data.google_compute_image.custom_image.self_link
+      type  = var.instance_imagetype
+      size  = var.instance_size
     }
   }
 
   network_interface {
-    network = google_compute_network.vpc_network[each.key].self_link
-    subnetwork = "webapp"
+    network    = google_compute_network.vpc_network["vpc2"].self_link
+    subnetwork = google_compute_subnetwork.subnet["vpc2.webapp"].self_link
     access_config {}
   }
+
+  tags = var.instance_target_tags
 }

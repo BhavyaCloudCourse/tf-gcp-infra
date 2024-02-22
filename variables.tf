@@ -5,6 +5,62 @@ variable "project_id" {
 variable "region" {
   description = "Google Cloud region"
 }
+variable "webapp_route_tag" {
+  description = "Google Cloud region"
+}
+variable "custom_image_family" {
+  description = "Google Cloud region"
+}
+
+variable "firewall_allow_name" {
+  description = "Google Cloud region"
+}
+variable "firewall_deny_name" {
+  description = "Google Cloud region"
+}
+variable "firewall_direction" {
+  description = "Google Cloud region"
+}
+variable "source_ranges" {
+  description = "Google Cloud region"
+}
+variable "destination_ranges" {
+  description = "Google Cloud region"
+}
+variable "allow_target_tags" {
+  description = "Google Cloud region"
+}
+variable "disallow_target_tags" {
+  description = "Google Cloud region"
+}
+
+variable "protocol" {
+  description = "Google Cloud region"
+}
+variable "allow_ports" {
+  description = "Google Cloud region"
+}
+variable "disallow_ports" {
+  description = "Google Cloud region"
+}
+variable "instance_target_tags" {
+  description = "Google Cloud region"
+}
+variable "instance_name" {
+  description = "Google Cloud region"
+}
+variable "instance_machinetype" {
+  description = "Google Cloud region"
+}
+variable "instance_zone" {
+  description = "Google Cloud region"
+}
+variable "instance_imagetype" {
+  description = "Google Cloud region"
+}
+variable "instance_size" {
+  description = "Google Cloud region"
+}
 
 variable "vpcs" {
   description = "A list of VPC configurations"
