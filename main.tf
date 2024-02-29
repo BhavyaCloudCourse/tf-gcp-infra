@@ -1,73 +1,89 @@
+# Create custom vpc
 resource "google_compute_network" "vpc_network" {
-  for_each                        = var.vpcs
-  name                            = each.key
-  auto_create_subnetworks         = each.value.auto_create_subnetworks
-  routing_mode                    = each.value.routing_mode
-  delete_default_routes_on_create = each.value.delete_default_routes_on_create
+  name                            = var.vpc_name
+  auto_create_subnetworks         = var.auto_create_subnetworks
+  routing_mode                    = var.routing_mode
+  delete_default_routes_on_create = var.delete_default_routes_on_create
 }
 
-resource "google_compute_subnetwork" "subnet" {
-  for_each = {
-    for subnet in local.network_subnets : "${subnet.network_key}.${subnet.subnet_key}" => subnet
-  }
-  name          = each.value.subnet_key
-  ip_cidr_range = each.value.cidr
-  network       = each.value.network
-  region        = each.value.region
+# Create webapp subnet
+resource "google_compute_subnetwork" "webapp_subnet" {
+  name          = var.webapp_subnet_name
+  ip_cidr_range = var.webapp_subnet_cidr
+  network       = google_compute_network.vpc_network.self_link
+  region        = var.webapp_subnet_region
 
 }
+
+# Create db subnet
+resource "google_compute_subnetwork" "db_subnet" {
+  name          = var.db_subnet_name
+  ip_cidr_range = var.db_subnet_cidr
+  network       = google_compute_network.vpc_network.self_link
+  region        = var.db_subnet_region
+
+}
+
+# Create webapp route
 resource "google_compute_route" "webapp_route" {
-  for_each         = var.vpcs
-  name             = each.value.route_name
-  network          = google_compute_network.vpc_network[each.key].self_link
-  dest_range       = each.value.dest_range
-  next_hop_gateway = each.value.next_hop_gateway
+  name             = var.webapp_route_name
+  network          = google_compute_network.vpc_network.self_link
+  dest_range       = var.webapp_route_dest_range
+  next_hop_gateway = var.webapp_route_next_hop_gateway
   description      = "Route for webapp subnet"
   tags             = var.webapp_route_tag
 }
 
+# Create firewall allow rule app port 8080
+resource "google_compute_firewall" "allow_app" {
+  name               = var.firewall_allow_app_name
+  network            = google_compute_network.vpc_network.self_link
+  priority           = 1000
+  direction          = var.firewall_allow_app_direction
+  source_ranges      = var.firewall_allow_app_source_ranges
+  destination_ranges = var.firewall_allow_app_destination_ranges
+  target_tags        = var.firewall_allow_app_target_tags
+  allow {
+    protocol = var.firewall_allow_app_protocol
+    ports    = var.firewall_allow_app_ports
+  }
+}
+
+# Create firewall deny rule ssh port 22
+resource "google_compute_firewall" "deny_ssh" {
+  name               = var.firewall_deny_ssh_name
+  network            = google_compute_network.vpc_network.self_link
+  priority           = 1001
+  direction          = var.firewall_deny_ssh_direction
+  source_ranges      = var.firewall_deny_ssh_source_ranges
+  destination_ranges = var.firewall_deny_ssh_destination_ranges
+  target_tags        = var.firewall_deny_ssh_target_tags
+  allow {
+    protocol = var.firewall_deny_ssh_protocol
+    ports    = var.firewall_deny_ssh_ports
+  }
+}
+
+# Create custom image packer family
 data "google_compute_image" "custom_image" {
   project     = var.project_id
   most_recent = true
   family      = var.custom_image_family
 }
 
-resource "google_compute_firewall" "allow_http_8080" {
-  for_each  = var.vpcs
-  name      = var.firewall_allow_name
-  network   = google_compute_network.vpc_network[each.key].self_link
-  priority  = 1000
-  direction = var.firewall_direction
+# Create template for startup script
+data "template_file" "startup_script" {
+  template = file(var.startup_script_path)
 
-
-  source_ranges      = var.source_ranges
-  destination_ranges = var.destination_ranges
-
-  target_tags = var.allow_target_tags
-
-  allow {
-    protocol = var.protocol
-    ports    = var.allow_ports
+  vars = {
+    DB_USERNAME ="test"
+    DB_NAME = "google_sql_database.my_database_sql.n"
+    DB_PASSWORD = "google_sql_user.my_database_sql_user.password"
+    DB_HOSTNAME = "google_sql_database_instance.my_database_instance.private_ip_address"
   }
 }
 
-resource "google_compute_firewall" "block_ssh" {
-  for_each  = var.vpcs
-  name      = var.firewall_deny_name
-  network   = google_compute_network.vpc_network[each.key].self_link
-  priority  = 1001
-  direction = var.firewall_direction
-
-  source_ranges      = var.source_ranges
-  destination_ranges = var.destination_ranges
-
-  target_tags = var.disallow_target_tags
-  deny {
-    protocol = var.protocol
-    ports    = var.disallow_ports
-  }
-}
-
+# Create instance for app
 resource "google_compute_instance" "instance" {
   name         = var.instance_name
   machine_type = var.instance_machinetype
@@ -82,10 +98,93 @@ resource "google_compute_instance" "instance" {
   }
 
   network_interface {
-    network    = google_compute_network.vpc_network["vpc2"].self_link
-    subnetwork = google_compute_subnetwork.subnet["vpc2.webapp"].self_link
+    network    = google_compute_network.vpc_network.self_link
+    subnetwork = google_compute_subnetwork.webapp_subnet.self_link
     access_config {}
   }
 
-  tags = var.instance_target_tags
+  tags = var.instance_tags
+
+   metadata = {
+    startup-script = <<-EOT
+    #!/bin/bash
+
+sudo cat << EOF | sudo tee /opt/csye6225/.env
+DB_HOST="${google_sql_database_instance.my_database_instance.private_ip_address}"
+DB_USER="${google_sql_user.my_database_sql_user.name}"
+DB_PASSWORD="${google_sql_user.my_database_sql_user.password}"
+DB_NAME="${google_sql_database.my_database_sql.name}"
+PORT=8080
+DB_PORT=3306
+EOF
+
+
+sudo systemctl restart csye6225.service
+
+EOT
+  }
 }
+
+
+
+
+# Allocate an IP address range
+resource "google_compute_global_address" "private_ip_address" {
+  name          = var.private_ip_address_name
+  purpose       = var.private_ip_address_purpose
+  address_type  = var.private_ip_address_address_type
+  prefix_length = var.private_ip_address_prefix_length
+  network       = google_compute_network.vpc_network.self_link
+}
+
+# Create a private connection 
+resource "google_service_networking_connection" "connection" {
+  network                 = google_compute_network.vpc_network.self_link
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+}
+
+# Create CloudSQL database instance
+resource "google_sql_database_instance" "my_database_instance" {
+  name             = var.my_database_instance_name
+  region           = var.my_database_instance_region
+  database_version = var.my_database_instance_database_version
+  settings {
+    tier              = var.my_database_instance_tier
+    availability_type = var.my_database_instance_availability_type
+    disk_type         = var.my_database_instance_disk_type
+    disk_size         = var.my_database_instance_disk_size
+    ip_configuration {
+      ipv4_enabled                                  = var.my_database_instance_ipv4_enabled
+      private_network                               = google_compute_network.vpc_network.self_link
+      enable_private_path_for_google_cloud_services = true
+    }
+    backup_configuration {
+      enabled            = true
+      binary_log_enabled = true
+    }
+  }
+  deletion_protection = var.my_database_instance_deletion_protection
+  depends_on          = [google_service_networking_connection.connection]
+}
+
+# Create CloudSQL database
+resource "google_sql_database" "my_database_sql" {
+  name     = var.my_database_sql_name
+  instance = google_sql_database_instance.my_database_instance.name
+}
+
+# Generate a random password for the database user
+resource "random_password" "db_password" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+# Create CloudSQL database user
+resource "google_sql_user" "my_database_sql_user" {
+  name     = var.my_database_sql_user_name
+  instance = google_sql_database_instance.my_database_instance.name
+  password = random_password.db_password.result
+}
+
