@@ -58,7 +58,7 @@ resource "google_compute_firewall" "deny_ssh" {
   source_ranges      = var.firewall_deny_ssh_source_ranges
   destination_ranges = var.firewall_deny_ssh_destination_ranges
   target_tags        = var.firewall_deny_ssh_target_tags
-  allow {
+  deny {
     protocol = var.firewall_deny_ssh_protocol
     ports    = var.firewall_deny_ssh_ports
   }
@@ -71,17 +71,7 @@ data "google_compute_image" "custom_image" {
   family      = var.custom_image_family
 }
 
-# Create template for startup script
-data "template_file" "startup_script" {
-  template = file(var.startup_script_path)
 
-  vars = {
-    DB_USERNAME ="test"
-    DB_NAME = "google_sql_database.my_database_sql.n"
-    DB_PASSWORD = "google_sql_user.my_database_sql_user.password"
-    DB_HOSTNAME = "google_sql_database_instance.my_database_instance.private_ip_address"
-  }
-}
 
 # Create instance for app
 resource "google_compute_instance" "instance" {
@@ -105,7 +95,7 @@ resource "google_compute_instance" "instance" {
 
   tags = var.instance_tags
 
-   metadata = {
+  metadata = {
     startup-script = <<-EOT
     #!/bin/bash
 
@@ -114,8 +104,8 @@ DB_HOST="${google_sql_database_instance.my_database_instance.private_ip_address}
 DB_USER="${google_sql_user.my_database_sql_user.name}"
 DB_PASSWORD="${google_sql_user.my_database_sql_user.password}"
 DB_NAME="${google_sql_database.my_database_sql.name}"
-PORT=8080
-DB_PORT=3306
+PORT="${var.env_app_port}"
+DB_PORT="${var.env_mysql_port}"
 EOF
 
 

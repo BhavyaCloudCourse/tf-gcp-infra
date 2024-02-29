@@ -167,7 +167,3 @@ variable "env_mysql_port" {
   description = "mysql port in env file"
 }
 
-variable "startup_script_path" {
-  description = "Path to the startup script for GCE instances"
-  default     = "startup_script.tpl" # Change as needed
-}
