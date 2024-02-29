@@ -1,0 +1,6 @@
+cat << EOF > example.txt /opt/csye6225/.env
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+DB_HOSTNAME=${DB_HOSTNAME}
+EOF
+
