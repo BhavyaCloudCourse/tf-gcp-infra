@@ -178,3 +178,13 @@ resource "google_sql_user" "my_database_sql_user" {
   password = random_password.db_password.result
 }
 
+#Create A record for domain
+resource "google_dns_record_set" "Arecord" {
+  name = "csye6225-bhavya-prakash.me."
+  type = "A"
+  ttl  = 300
+
+  managed_zone = "csye6225-bhavya-prakash"
+
+  rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
+}
