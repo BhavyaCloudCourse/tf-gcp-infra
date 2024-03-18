@@ -58,7 +58,7 @@ resource "google_compute_firewall" "deny_ssh" {
   source_ranges      = var.firewall_deny_ssh_source_ranges
   destination_ranges = var.firewall_deny_ssh_destination_ranges
   target_tags        = var.firewall_deny_ssh_target_tags
-  deny {
+  allow {
     protocol = var.firewall_deny_ssh_protocol
     ports    = var.firewall_deny_ssh_ports
   }
@@ -71,7 +71,31 @@ data "google_compute_image" "custom_image" {
   family      = var.custom_image_family
 }
 
+#Create service account
+resource "google_service_account" "service_account_ops" {
+  account_id   = "service-account-id"
+  display_name = "Service Account Ops"
+}
 
+# Create IAM bindings for Logging admin role
+resource "google_project_iam_binding" "logging_admin" {
+  project = var.project_id
+  role    = "roles/logging.admin"
+
+  members = [
+    "serviceAccount:${google_service_account.service_account_ops.email}"
+  ]
+}
+
+# Create IAM bindings for Monitoring metrics writer role
+resource "google_project_iam_binding" "metrics_writer" {
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
+
+  members = [
+    "serviceAccount:${google_service_account.service_account_ops.email}"
+  ]
+}
 
 # Create instance for app
 resource "google_compute_instance" "instance" {
@@ -110,9 +134,17 @@ EOF
 
 
 sudo systemctl restart csye6225.service
+sudo systemctl restart google-cloud-ops-agent
 
 EOT
   }
+
+  service_account {
+    email  = google_service_account.service_account_ops.email
+    scopes = ["cloud-platform"]
+  }
+
+  allow_stopping_for_update = true
 }
 
 
@@ -188,3 +220,4 @@ resource "google_dns_record_set" "Arecord" {
 
   rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
 }
+
