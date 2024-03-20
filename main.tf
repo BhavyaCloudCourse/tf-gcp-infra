@@ -73,14 +73,14 @@ data "google_compute_image" "custom_image" {
 
 #Create service account
 resource "google_service_account" "service_account_ops" {
-  account_id   = "service-account-id"
-  display_name = "Service Account Ops"
+  account_id   = var.ops_service_account_id
+  display_name = var.ops_service_account_name
 }
 
 # Create IAM bindings for Logging admin role
 resource "google_project_iam_binding" "logging_admin" {
   project = var.project_id
-  role    = "roles/logging.admin"
+  role    = var.ops_service_account_logging_admin_role
 
   members = [
     "serviceAccount:${google_service_account.service_account_ops.email}"
@@ -90,7 +90,7 @@ resource "google_project_iam_binding" "logging_admin" {
 # Create IAM bindings for Monitoring metrics writer role
 resource "google_project_iam_binding" "metrics_writer" {
   project = var.project_id
-  role    = "roles/monitoring.metricWriter"
+  role    = var.ops_service_account_metrics_writer_role
 
   members = [
     "serviceAccount:${google_service_account.service_account_ops.email}"
@@ -141,7 +141,7 @@ EOT
 
   service_account {
     email  = google_service_account.service_account_ops.email
-    scopes = ["cloud-platform"]
+    scopes = var.ops_service_account_instance_scopes
   }
 
   allow_stopping_for_update = true
@@ -212,11 +212,11 @@ resource "google_sql_user" "my_database_sql_user" {
 
 #Create A record for domain
 resource "google_dns_record_set" "Arecord" {
-  name = "csye6225-bhavya-prakash.me."
-  type = "A"
-  ttl  = 300
+  name = var.google_dns_record_A_name
+  type = var.google_dns_record_A_type
+  ttl  = var.google_dns_record_A_ttl
 
-  managed_zone = "csye6225-bhavya-prakash"
+  managed_zone = var.google_dns_record_A_zone
 
   rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
 }
