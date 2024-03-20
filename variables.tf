@@ -167,3 +167,30 @@ variable "env_mysql_port" {
   description = "mysql port in env file"
 }
 
+variable "ops_service_account_id" {
+  description = "ops service account id"
+}
+variable "ops_service_account_name" {
+  description = "ops service account name"
+}
+variable "ops_service_account_metrics_writer_role" {
+  description = "ops service account metric writer role"
+}
+variable "ops_service_account_logging_admin_role" {
+  description = "ops service account logging admin role"
+}
+variable "ops_service_account_instance_scopes" {
+  description = "ops service account scopes"
+}
+variable "google_dns_record_A_name" {
+  description = "google_dns_record_A_name"
+}
+variable "google_dns_record_A_type" {
+  description = "google_dns_record_A_type"
+}
+variable "google_dns_record_A_ttl" {
+  description = "google_dns_record_A_ttl"
+}
+variable "google_dns_record_A_zone" {
+  description = "google_dns_record_A_zone"
+}
