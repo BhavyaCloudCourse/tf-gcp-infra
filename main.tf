@@ -58,7 +58,7 @@ resource "google_compute_firewall" "deny_ssh" {
   source_ranges      = var.firewall_deny_ssh_source_ranges
   destination_ranges = var.firewall_deny_ssh_destination_ranges
   target_tags        = var.firewall_deny_ssh_target_tags
-  deny {
+  allow {
     protocol = var.firewall_deny_ssh_protocol
     ports    = var.firewall_deny_ssh_ports
   }
@@ -71,7 +71,7 @@ data "google_compute_image" "custom_image" {
   family      = var.custom_image_family
 }
 
-#Create service account
+#Create service account for ops
 resource "google_service_account" "service_account_ops" {
   account_id   = var.ops_service_account_id
   display_name = var.ops_service_account_name
@@ -221,3 +221,119 @@ resource "google_dns_record_set" "Arecord" {
   rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
 }
 
+resource "google_pubsub_topic" "verify_email" {
+  name                       = "verify_email"
+  message_retention_duration = "604800s"
+}
+
+resource "google_pubsub_subscription" "verify_email_subs" {
+  name  = "verify_email_subs"
+  topic = google_pubsub_topic.verify_email.name
+
+}
+resource "google_service_account" "service_account_pubsub" {
+  account_id   = "service-account-pubsub"
+  display_name = "Service Account Pubsub Webapp"
+}
+
+resource "google_project_iam_binding" "publish_binding" {
+  project = var.project_id
+  role    = "roles/pubsub.publisher"
+  members = [
+    "serviceAccount:${google_service_account.service_account_pubsub.email}"
+  ]
+}
+
+resource "random_id" "bucket_prefix" {
+  byte_length = 8
+}
+
+
+resource "google_service_account" "service_account_cloud_function" {
+  account_id   = "service-account-cf-id"
+  display_name = "Service Account Cloud Function"
+}
+
+resource "google_project_iam_binding" "cloudsql_binding" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  members = [
+    "serviceAccount:${google_service_account.service_account_cloud_function.email}"
+  ]
+}
+resource "google_project_iam_binding" "networkUser_binding" {
+  project = var.project_id
+  role    = "roles/compute.networkUser"
+  members = [
+    "serviceAccount:${google_service_account.service_account_cloud_function.email}"
+  ]
+}
+
+resource "google_storage_bucket" "cloud_function_bucket" {
+  name                        = "${random_id.bucket_prefix.hex}-gcf-bucket" # Every bucket name must be globally unique
+  location                    = "US"
+  uniform_bucket_level_access = true
+}
+
+data "archive_file" "cloud_function_file" {
+  type        = "zip"
+  output_path = "/tmp/serverless.zip"
+  source_dir  = "serverless"
+}
+
+resource "google_storage_bucket_object" "cloud_function_bucket_object" {
+  name   = "serverless.zip"
+  bucket = google_storage_bucket.cloud_function_bucket.name
+  source = data.archive_file.cloud_function_file.output_path # Path to the zipped function source code
+}
+
+resource "google_cloudfunctions2_function" "cloud_function_verify_email" {
+  name        = "function2"
+  location    = "us-east4"
+  description = "a new function"
+
+  build_config {
+    runtime     = "nodejs20"
+    entry_point = "helloPubSub" # Set the entry point
+    environment_variables = {
+      BUILD_CONFIG_TEST = "build_test"
+
+    }
+    source {
+      storage_source {
+        bucket = google_storage_bucket.cloud_function_bucket.name
+        object = google_storage_bucket_object.cloud_function_bucket_object.name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count = 3
+    min_instance_count = 1
+    available_memory   = "256M"
+    timeout_seconds    = 60
+    environment_variables = {
+      SERVICE_CONFIG_TEST = "config_test"
+
+    }
+    ingress_settings               = "ALLOW_INTERNAL_ONLY"
+    vpc_connector                  = google_vpc_access_connector.cfconnector.self_link
+    all_traffic_on_latest_revision = true
+    service_account_email          = google_service_account.service_account_cloud_function.email
+  }
+
+  event_trigger {
+    trigger_region = "us-east4"
+    event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic   = google_pubsub_topic.verify_email.id
+    retry_policy   = "RETRY_POLICY_RETRY"
+  }
+
+}
+
+resource "google_vpc_access_connector" "cfconnector" {
+  name          = "vpc-con-serverless"
+  region        = "us-east4"
+  ip_cidr_range = "10.8.0.0/28"
+  network       = google_compute_network.vpc_network.self_link
+}
