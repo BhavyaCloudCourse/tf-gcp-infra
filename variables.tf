@@ -51,6 +51,9 @@ variable "webapp_route_tag" {
 variable "custom_image_family" {
   description = "GCE Custom Packer Img"
 }
+variable "custom_image_most_recent" {
+  description = "GCE Custom Packer Img Most Recent"
+}
 
 variable "firewall_allow_app_name" {
   description = "firewall allow name"
@@ -73,6 +76,9 @@ variable "firewall_allow_app_protocol" {
 }
 variable "firewall_allow_app_ports" {
   description = "firewall_allow_app_ports"
+}
+variable "firewall_allow_app_priority" {
+  description = "firewall_allow_app_priority"
 }
 
 variable "firewall_deny_ssh_name" {
@@ -97,6 +103,9 @@ variable "firewall_deny_ssh_protocol" {
 variable "firewall_deny_ssh_ports" {
   description = "firewall_deny_ssh_ports"
 }
+variable "firewall_deny_ssh_priority" {
+  description = "firewall_deny_ssh_priority"
+}
 variable "instance_name" {
   description = "instance_name"
 }
@@ -115,17 +124,23 @@ variable "instance_size" {
 variable "instance_tags" {
   description = "instance_target_tags"
 }
+variable "instance_tags_allow_stopping_for_update" {
+  description = "instance_target_tags_allow_stopping_for_update"
+}
 variable "private_ip_address_name" {
-  description = "instance_zone"
+  description = "private_ip_address_name"
 }
 variable "private_ip_address_purpose" {
-  description = "instance_imagetype"
+  description = "private_ip_address_purpose"
 }
 variable "private_ip_address_address_type" {
   description = "private_ip_address_address_type"
 }
 variable "private_ip_address_prefix_length" {
   description = "private_ip_address_prefix_length"
+}
+variable "connection_vpc_peering_service" {
+  description = "connection_vpc_peering_service"
 }
 variable "my_database_instance_name" {
   description = "my_database_instance_name"
@@ -154,12 +169,31 @@ variable "my_database_instance_ipv4_enabled" {
 variable "my_database_instance_deletion_protection" {
   description = "my_database_instance_deletion_protection"
 }
+variable "my_database_instance_enable_private_path_for_google_cloud_services" {
+  description = "my_database_instance_enable_private_path_for_google_cloud_services"
+}
+variable "my_database_instance_backup_enabled" {
+  description = "my_database_instance_backup_enabled"
+}
+variable "my_database_instance_binary_log_enabled" {
+  description = "my_database_instance_binary_log_enabled"
+}
 variable "my_database_sql_name" {
   description = "my_database_sql_name"
 }
 variable "my_database_sql_user_name" {
   description = "my_database_sql_user_namer"
 }
+variable "my_database_sql_password_length" {
+  description = "my_database_sql_password_length"
+}
+variable "my_database_sql_password_special" {
+  description = "my_database_sql_password_special"
+}
+variable "my_database_sql_password_override" {
+  description = "my_database_sql_password_override"
+}
+
 variable "env_app_port" {
   description = "app port in env file"
 }
@@ -167,19 +201,19 @@ variable "env_mysql_port" {
   description = "mysql port in env file"
 }
 
-variable "ops_service_account_id" {
+variable "vm_service_account_id" {
   description = "ops service account id"
 }
-variable "ops_service_account_name" {
+variable "vm_service_account_name" {
   description = "ops service account name"
 }
-variable "ops_service_account_metrics_writer_role" {
+variable "vm_service_account_metrics_writer_role" {
   description = "ops service account metric writer role"
 }
-variable "ops_service_account_logging_admin_role" {
+variable "vm_service_account_logging_admin_role" {
   description = "ops service account logging admin role"
 }
-variable "ops_service_account_instance_scopes" {
+variable "vm_service_account_instance_scopes" {
   description = "ops service account scopes"
 }
 variable "google_dns_record_A_name" {
@@ -193,4 +227,97 @@ variable "google_dns_record_A_ttl" {
 }
 variable "google_dns_record_A_zone" {
   description = "google_dns_record_A_zone"
+}
+variable "google_vpc_access_connector_region" {
+  description = "google_vpc_access_connector_region"
+}
+variable "google_vpc_access_connector_ip_cidr_range" {
+  description = "google_vpc_access_connector_ip_cidr_range"
+}
+variable "google_vpc_access_connector_name" {
+  description = "google_vpc_access_connector_name"
+}
+variable "google_pubsub_topic_name" {
+  description = "google_pubsub_topic_name"
+}
+variable "google_pubsub_topic_message_retention_duration" {
+  description = "google_pubsub_topic_message_retention_duration"
+}
+variable "google_pubsub_subscription_name" {
+  description = "google_pubsub_subscription_name"
+}
+variable "pubsub_binding_role" {
+  description = "pubsub_binding_role"
+}
+variable "service_account_cloud_function_id" {
+  description = "service_account_cloud_function_id"
+}
+variable "service_account_cloud_function_name" {
+  description = "service_account_cloud_function_name"
+}
+variable "cloud_function_binding_role" {
+  description = "cloud_function_binding_role"
+}
+variable "archive_file_type" {
+  description = "archive_file_type"
+}
+variable "archive_file_output_path" {
+  description = "archive_file_output_path"
+}
+variable "archive_file_source_dir" {
+  description = "archive_file_source_dir"
+}
+variable "cloud_function_bucket_object_name" {
+  description = "cloud_function_bucket_object_name"
+}
+variable "cloud_function_verify_email_name" {
+  description = "cloud_function_verify_email_name"
+}
+variable "cloud_function_verify_email_location" {
+  description = "cloud_function_verify_email_location"
+}
+variable "cloud_function_verify_email_description" {
+  description = "cloud_function_verify_email_description"
+}
+variable "cloud_function_verify_email_build_runtime" {
+  description = "cloud_function_verify_email_build_runtime"
+}
+variable "cloud_function_verify_email_build_enrtypoint" {
+  description = "cloud_function_verify_email_build_enrtypoint"
+}
+variable "cloud_function_verify_email_service_max_instance_count" {
+  description = "cloud_function_verify_email_service_max_instance_count"
+}
+variable "cloud_function_verify_email_service_min_instance_count" {
+  description = "cloud_function_verify_email_service_min_instance_count"
+}
+variable "cloud_function_verify_email_service_available_memory" {
+  description = "cloud_function_verify_email_service_available_memory"
+}
+variable "cloud_function_verify_email_service_timeout_seconds" {
+  description = "cloud_function_verify_email_service_timeout_seconds"
+}
+variable "cloud_function_verify_email_service_ingress_settings" {
+  description = "cloud_function_verify_email_service_ingress_settings"
+}
+variable "cloud_function_verify_email_service_all_traffic_on_latest_revision" {
+  description = "cloud_function_verify_email_service_all_traffic_on_latest_revision"
+}
+variable "cloud_function_verify_email_trigger_region" {
+  description = "cloud_function_verify_email_trigger_region"
+}
+variable "cloud_function_verify_email_event_type" {
+  description = "cloud_function_verify_email_event_type"
+}
+variable "cloud_function_verify_email_retry_policy" {
+  description = "cloud_function_verify_email_retry_policy"
+}
+variable "cloud_function_bucket_location" {
+  description = "cloud_function_bucket_location"
+}
+variable "cloud_function_bucket_uniform_bucket_level_access" {
+  description = "cloud_function_bucket_uniform_bucket_level_access"
+}
+variable "bucket_prefix" {
+  description = "bucket_prefix"
 }
