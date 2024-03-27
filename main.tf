@@ -57,7 +57,7 @@ resource "google_compute_firewall" "deny_ssh" {
   source_ranges      = var.firewall_deny_ssh_source_ranges
   destination_ranges = var.firewall_deny_ssh_destination_ranges
   target_tags        = var.firewall_deny_ssh_target_tags
-  allow {
+  deny {
     protocol = var.firewall_deny_ssh_protocol
     ports    = var.firewall_deny_ssh_ports
   }
