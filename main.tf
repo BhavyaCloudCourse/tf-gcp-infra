@@ -267,7 +267,7 @@ resource "random_id" "bucket_prefix" {
 
 #Create a bucket to store cloud function code
 resource "google_storage_bucket" "cloud_function_bucket" {
-  name                        = "${random_id.bucket_prefix.hex}-gcf-bucket" # Every bucket name must be globally unique
+  name                        = "${random_id.bucket_prefix.hex}-gcf-bucket" # Globally unique
   location                    = var.cloud_function_bucket_location
   uniform_bucket_level_access = var.cloud_function_bucket_uniform_bucket_level_access
 }
