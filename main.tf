@@ -96,61 +96,6 @@ resource "google_project_iam_binding" "metrics_writer" {
   ]
 }
 
-# Create instance for app
-resource "google_compute_instance" "instance" {
-  name         = var.instance_name
-  machine_type = var.instance_machinetype
-  zone         = var.instance_zone
-
-  boot_disk {
-    initialize_params {
-      image = data.google_compute_image.custom_image.self_link
-      type  = var.instance_imagetype
-      size  = var.instance_size
-    }
-  }
-
-  network_interface {
-    network    = google_compute_network.vpc_network.self_link
-    subnetwork = google_compute_subnetwork.webapp_subnet.self_link
-    access_config {}
-  }
-
-  tags = var.instance_tags
-
-  metadata = {
-    startup-script = <<-EOT
-    #!/bin/bash
-
-sudo cat << EOF | sudo tee /opt/csye6225/.env
-DB_HOST="${google_sql_database_instance.my_database_instance.private_ip_address}"
-DB_USER="${google_sql_user.my_database_sql_user.name}"
-DB_PASSWORD="${google_sql_user.my_database_sql_user.password}"
-DB_NAME="${google_sql_database.my_database_sql.name}"
-PORT="${var.env_app_port}"
-DB_PORT="${var.env_mysql_port}"
-PROJECT_ID= "${var.project_id}"
-TOPIC_NAME="${google_pubsub_topic.verify_email.name}"
-EOF
-
-
-sudo systemctl restart csye6225.service
-sudo systemctl restart google-cloud-ops-agent
-
-EOT
-  }
-
-  service_account {
-    email  = google_service_account.service_account_vm.email
-    scopes = var.vm_service_account_instance_scopes
-  }
-
-  allow_stopping_for_update = var.instance_tags_allow_stopping_for_update
-}
-
-
-
-
 # Allocate an IP address range
 resource "google_compute_global_address" "private_ip_address" {
   name          = var.private_ip_address_name
@@ -212,15 +157,15 @@ resource "google_sql_user" "my_database_sql_user" {
 }
 
 #Create A record for domain
-resource "google_dns_record_set" "Arecord" {
-  name = var.google_dns_record_A_name
-  type = var.google_dns_record_A_type
-  ttl  = var.google_dns_record_A_ttl
+# resource "google_dns_record_set" "Arecord" {
+#   name = var.google_dns_record_A_name
+#   type = var.google_dns_record_A_type
+#   ttl  = var.google_dns_record_A_ttl
 
-  managed_zone = var.google_dns_record_A_zone
+#   managed_zone = var.google_dns_record_A_zone
 
-  rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
-}
+#   rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
+# }
 
 #Create a pubsub topic
 resource "google_pubsub_topic" "verify_email" {
@@ -321,6 +266,7 @@ resource "google_cloudfunctions2_function" "cloud_function_verify_email" {
     }
     ingress_settings               = var.cloud_function_verify_email_service_ingress_settings
     vpc_connector                  = google_vpc_access_connector.cfconnector.self_link
+    vpc_connector_egress_settings  = "PRIVATE_RANGES_ONLY" 
     all_traffic_on_latest_revision = var.cloud_function_verify_email_service_all_traffic_on_latest_revision
     service_account_email          = google_service_account.service_account_cloud_function.email
   }
@@ -341,4 +287,110 @@ resource "google_vpc_access_connector" "cfconnector" {
   region        = var.google_vpc_access_connector_region
   ip_cidr_range = var.google_vpc_access_connector_ip_cidr_range
   network       = google_compute_network.vpc_network.self_link
+}
+
+#Create  instance template
+
+resource "google_compute_region_instance_template" "instance_temp" {
+  name           = "instance-template1"
+  machine_type   = var.instance_machinetype
+  can_ip_forward = false
+  project        = var.project_id
+
+  disk {
+
+    source_image = data.google_compute_image.custom_image.self_link
+    disk_type    = var.instance_imagetype
+    disk_size_gb = var.instance_size
+
+  }
+
+  network_interface {
+    network    = google_compute_network.vpc_network.self_link
+    subnetwork = google_compute_subnetwork.webapp_subnet.self_link
+    access_config {}
+  }
+
+  tags = ["http-server-8080", "ssh-22"]
+
+  metadata = {
+    startup-script = <<-EOT
+    #!/bin/bash
+
+sudo cat << EOF | sudo tee /opt/csye6225/.env
+DB_HOST="${google_sql_database_instance.my_database_instance.private_ip_address}"
+DB_USER="${google_sql_user.my_database_sql_user.name}"
+DB_PASSWORD="${google_sql_user.my_database_sql_user.password}"
+DB_NAME="${google_sql_database.my_database_sql.name}"
+PORT="${var.env_app_port}"
+DB_PORT="${var.env_mysql_port}"
+PROJECT_ID= "${var.project_id}"
+TOPIC_NAME="${google_pubsub_topic.verify_email.name}"
+EOF
+
+
+sudo systemctl restart csye6225.service
+sudo systemctl restart google-cloud-ops-agent
+
+EOT
+  }
+
+  service_account {
+    email  = google_service_account.service_account_vm.email
+    scopes = var.vm_service_account_instance_scopes
+  }
+
+}
+
+#Create an instance group manager
+resource "google_compute_region_instance_group_manager" "instance_group_manager" {
+  name   = "instance-group-manager3"
+  region = var.region
+
+  version {
+    instance_template = google_compute_region_instance_template.instance_temp.id
+    name              = "primary"
+  }
+
+  base_instance_name = "vm"
+
+  named_port {
+    name = "http"
+    port = 8080
+  }
+  auto_healing_policies {
+    health_check      = google_compute_health_check.database_auth.id
+    initial_delay_sec = 300
+  }
+}
+
+#Create an auto scaler
+resource "google_compute_region_autoscaler" "auto_scaler" {
+  name   = "auto-scaler3"
+  region = var.region
+  target = google_compute_region_instance_group_manager.instance_group_manager.id
+
+  autoscaling_policy {
+    max_replicas    = 9
+    min_replicas    = 3
+    cooldown_period = 60
+
+    cpu_utilization {
+      target = 0.05
+    }
+  }
+}
+
+# Create a health check
+resource "google_compute_health_check" "database_auth" {
+  name                = "database-auth-health-check"
+  check_interval_sec  = 5
+  timeout_sec         = 5
+  healthy_threshold   = 2
+  unhealthy_threshold = 10 # 50 seconds
+
+  http_health_check {
+    request_path = "/healthz"
+    port         = "8080"
+  }
 }
