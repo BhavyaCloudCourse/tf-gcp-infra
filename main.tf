@@ -166,6 +166,9 @@ resource "google_dns_record_set" "Arecord" {
   managed_zone = var.google_dns_record_A_zone
 
   rrdatas = [google_compute_global_forwarding_rule.frontend.ip_address]
+  depends_on = [
+    google_compute_global_forwarding_rule.frontend
+  ]
 }
 
 #Create a pubsub topic
@@ -416,7 +419,7 @@ resource "google_compute_global_address" "load_balancer_IP" {
 }
 
 resource "google_compute_backend_service" "load_balancer_backend" {
-  name                            = "web-backend-service1"
+  name                            = "web-backend-service3"
   connection_draining_timeout_sec = 0
   health_checks                   = [google_compute_health_check.database_auth.id]
   load_balancing_scheme           = "EXTERNAL_MANAGED"
@@ -432,20 +435,34 @@ resource "google_compute_backend_service" "load_balancer_backend" {
 }
 
 resource "google_compute_url_map" "url_map" {
-  name            = "web-map-http1"
+  name            = "web-map-http3"
   default_service = google_compute_backend_service.load_balancer_backend.id
 }
 
-resource "google_compute_target_http_proxy" "http_proxy" {
-  name    = "http-lb-proxy1"
+resource "google_compute_target_https_proxy" "http_proxy" {
+  name    = "https-lb-proxy3"
   url_map = google_compute_url_map.url_map.id
+  ssl_certificates = [
+    google_compute_managed_ssl_certificate.lb_default.name
+  ]
+  depends_on = [
+    google_compute_managed_ssl_certificate.lb_default
+  ]
 }
 
 resource "google_compute_global_forwarding_rule" "frontend" {
-  name                  = "http-content-rule1"
+  name                  = "http-content-rule3"
   ip_protocol           = "TCP"
   load_balancing_scheme = "EXTERNAL_MANAGED"
-  port_range            = "8080"
-  target                = google_compute_target_http_proxy.http_proxy.id
+  port_range            = "443"
+  target                = google_compute_target_https_proxy.http_proxy.id
   ip_address            = google_compute_global_address.load_balancer_IP.id
+}
+
+resource "google_compute_managed_ssl_certificate" "lb_default" {
+  name     = "myservice-ssl"
+
+  managed {
+    domains = ["csye6225-bhavya-prakash.me"]
+  }
 }
