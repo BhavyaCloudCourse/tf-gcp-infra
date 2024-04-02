@@ -39,7 +39,7 @@ resource "google_compute_firewall" "allow_app" {
   network            = google_compute_network.vpc_network.self_link
   priority           = var.firewall_allow_app_priority
   direction          = var.firewall_allow_app_direction
-  source_ranges      = var.firewall_allow_app_source_ranges
+  source_ranges      = [google_compute_global_address.load_balancer_IP.address]
   destination_ranges = var.firewall_allow_app_destination_ranges
   target_tags        = var.firewall_allow_app_target_tags
   allow {
@@ -47,6 +47,7 @@ resource "google_compute_firewall" "allow_app" {
     ports    = var.firewall_allow_app_ports
   }
 }
+
 
 # Create firewall deny rule ssh port 22
 resource "google_compute_firewall" "deny_ssh" {
@@ -157,15 +158,15 @@ resource "google_sql_user" "my_database_sql_user" {
 }
 
 #Create A record for domain
-# resource "google_dns_record_set" "Arecord" {
-#   name = var.google_dns_record_A_name
-#   type = var.google_dns_record_A_type
-#   ttl  = var.google_dns_record_A_ttl
+resource "google_dns_record_set" "Arecord" {
+  name = var.google_dns_record_A_name
+  type = var.google_dns_record_A_type
+  ttl  = var.google_dns_record_A_ttl
 
-#   managed_zone = var.google_dns_record_A_zone
+  managed_zone = var.google_dns_record_A_zone
 
-#   rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
-# }
+  rrdatas = [google_compute_global_forwarding_rule.frontend.ip_address]
+}
 
 #Create a pubsub topic
 resource "google_pubsub_topic" "verify_email" {
@@ -266,7 +267,7 @@ resource "google_cloudfunctions2_function" "cloud_function_verify_email" {
     }
     ingress_settings               = var.cloud_function_verify_email_service_ingress_settings
     vpc_connector                  = google_vpc_access_connector.cfconnector.self_link
-    vpc_connector_egress_settings  = "PRIVATE_RANGES_ONLY" 
+    vpc_connector_egress_settings  = "PRIVATE_RANGES_ONLY"
     all_traffic_on_latest_revision = var.cloud_function_verify_email_service_all_traffic_on_latest_revision
     service_account_email          = google_service_account.service_account_cloud_function.email
   }
@@ -311,7 +312,7 @@ resource "google_compute_region_instance_template" "instance_temp" {
     access_config {}
   }
 
-  tags = ["http-server-8080", "ssh-22"]
+  tags = ["http-server-8080", "ssh-22", "allow-health-check", "deny"]
 
   metadata = {
     startup-script = <<-EOT
@@ -344,7 +345,7 @@ EOT
 
 #Create an instance group manager
 resource "google_compute_region_instance_group_manager" "instance_group_manager" {
-  name   = "instance-group-manager3"
+  name   = "instance-group-manager1"
   region = var.region
 
   version {
@@ -366,7 +367,7 @@ resource "google_compute_region_instance_group_manager" "instance_group_manager"
 
 #Create an auto scaler
 resource "google_compute_region_autoscaler" "auto_scaler" {
-  name   = "auto-scaler3"
+  name   = "auto-scaler1"
   region = var.region
   target = google_compute_region_instance_group_manager.instance_group_manager.id
 
@@ -393,4 +394,58 @@ resource "google_compute_health_check" "database_auth" {
     request_path = "/healthz"
     port         = "8080"
   }
+}
+
+#firewall rule to allow health check
+resource "google_compute_firewall" "allow_health_check" {
+  name          = "fw-allow-health-check"
+  direction     = "INGRESS"
+  network       = google_compute_network.vpc_network.self_link
+  priority      = 1000
+  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
+  target_tags   = ["allow-health-check"]
+  allow {
+    ports    = ["8080"]
+    protocol = "tcp"
+  }
+}
+
+resource "google_compute_global_address" "load_balancer_IP" {
+  name       = "load-balancer-ipaddresses"
+  ip_version = "IPV4"
+}
+
+resource "google_compute_backend_service" "load_balancer_backend" {
+  name                            = "web-backend-service1"
+  connection_draining_timeout_sec = 0
+  health_checks                   = [google_compute_health_check.database_auth.id]
+  load_balancing_scheme           = "EXTERNAL_MANAGED"
+  port_name                       = "http"
+  protocol                        = "HTTP"
+  session_affinity                = "NONE"
+  timeout_sec                     = 30
+  backend {
+    group           = google_compute_region_instance_group_manager.instance_group_manager.instance_group
+    balancing_mode  = "UTILIZATION"
+    capacity_scaler = 1.0
+  }
+}
+
+resource "google_compute_url_map" "url_map" {
+  name            = "web-map-http1"
+  default_service = google_compute_backend_service.load_balancer_backend.id
+}
+
+resource "google_compute_target_http_proxy" "http_proxy" {
+  name    = "http-lb-proxy1"
+  url_map = google_compute_url_map.url_map.id
+}
+
+resource "google_compute_global_forwarding_rule" "frontend" {
+  name                  = "http-content-rule1"
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_range            = "8080"
+  target                = google_compute_target_http_proxy.http_proxy.id
+  ip_address            = google_compute_global_address.load_balancer_IP.id
 }
