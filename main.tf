@@ -284,7 +284,7 @@ resource "google_cloudfunctions2_function" "cloud_function_verify_email" {
     }
     ingress_settings               = var.cloud_function_verify_email_service_ingress_settings
     vpc_connector                  = google_vpc_access_connector.cfconnector.self_link
-    vpc_connector_egress_settings  = "PRIVATE_RANGES_ONLY"
+    vpc_connector_egress_settings  = var.cloud_function_vpc_connector_egress_settings
     all_traffic_on_latest_revision = var.cloud_function_verify_email_service_all_traffic_on_latest_revision
     service_account_email          = google_service_account.service_account_cloud_function.email
   }
@@ -411,6 +411,9 @@ resource "google_compute_health_check" "database_auth" {
     request_path = var.health_check_request_path
     port         = var.health_check_port
   }
+  log_config {
+    enable = var.health_check_log_config
+  }
 }
 
 
@@ -422,18 +425,21 @@ resource "google_compute_global_address" "load_balancer_IP" {
 
 # Create load balancer backend
 resource "google_compute_backend_service" "load_balancer_backend" {
-  name                            = "web-backend-service3"
-  connection_draining_timeout_sec = 0
+  name                            = var.lb_bcknd_name
+  connection_draining_timeout_sec = var.lb_bcknd_connection_draining_timeout_sec
   health_checks                   = [google_compute_health_check.database_auth.id]
-  load_balancing_scheme           = "EXTERNAL_MANAGED"
-  port_name                       = "http"
-  protocol                        = "HTTP"
-  session_affinity                = "NONE"
-  timeout_sec                     = 30
+  load_balancing_scheme           = var.lb_bcknd_load_balancing_scheme
+  port_name                       = var.lb_bcknd_port_name
+  protocol                        = var.lb_bcknd_protocol
+  session_affinity                = var.lb_bcknd_session_affinity
+  timeout_sec                     = var.lb_bcknd_timeout_sec
   backend {
     group           = google_compute_region_instance_group_manager.instance_group_manager.instance_group
-    balancing_mode  = "UTILIZATION"
-    capacity_scaler = 1.0
+    balancing_mode  = var.lb_bcknd_balancing_mode
+    capacity_scaler = var.lb_bcknd_capacity_scaler
+  }
+  log_config {
+    enable = var.lb_bcknd_log_config
   }
 }
 
