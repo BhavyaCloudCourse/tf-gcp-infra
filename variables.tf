@@ -61,6 +61,9 @@ variable "firewall_allow_app_name" {
 variable "firewall_allow_app_direction" {
   description = "firewall_allow_app_port_direction"
 }
+variable "firewall_allow_app_source_ranges" {
+  description = "firewall_allow_app_port_destination_range"
+}
 variable "firewall_allow_app_destination_ranges" {
   description = "firewall_allow_app_port_destination_range"
 }

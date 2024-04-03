@@ -39,10 +39,10 @@ resource "google_compute_firewall" "allow_app" {
   network            = google_compute_network.vpc_network.self_link
   priority           = var.firewall_allow_app_priority
   direction          = var.firewall_allow_app_direction
-  source_ranges      = [google_compute_global_address.load_balancer_IP.address]
+  source_ranges      = var.firewall_allow_app_source_ranges
   destination_ranges = var.firewall_allow_app_destination_ranges
   target_tags        = var.firewall_allow_app_target_tags
-  allow {
+  deny {
     protocol = var.firewall_allow_app_protocol
     ports    = var.firewall_allow_app_ports
   }
