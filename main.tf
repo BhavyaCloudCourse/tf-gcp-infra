@@ -33,7 +33,7 @@ resource "google_compute_route" "webapp_route" {
   tags             = var.webapp_route_tag
 }
 
-# Create firewall allow rule app port 8080
+# Create firewall allow load balancer on  app port 8080
 resource "google_compute_firewall" "allow_app" {
   name               = var.firewall_allow_app_name
   network            = google_compute_network.vpc_network.self_link
@@ -61,6 +61,20 @@ resource "google_compute_firewall" "deny_ssh" {
   deny {
     protocol = var.firewall_deny_ssh_protocol
     ports    = var.firewall_deny_ssh_ports
+  }
+}
+
+#firewall rule to allow health check
+resource "google_compute_firewall" "allow_health_check" {
+  name          = var.firewall_allow_healthz_name
+  direction     = var.firewall_allow_healthz_direction
+  network       = google_compute_network.vpc_network.self_link
+  priority      = var.firewall_allow_healthz_priority
+  source_ranges = var.firewall_allow_healthz_source_ranges
+  target_tags   = var.firewall_allow_healthz_target_tags
+  allow {
+    ports    = var.firewall_allow_healthz_protocol
+    protocol = var.firewall_allow_healthz_ports
   }
 }
 
@@ -296,9 +310,9 @@ resource "google_vpc_access_connector" "cfconnector" {
 #Create  instance template
 
 resource "google_compute_region_instance_template" "instance_temp" {
-  name           = "instance-template1"
+  name           = var.instance_temp_name
   machine_type   = var.instance_machinetype
-  can_ip_forward = false
+  can_ip_forward = var.instance_ip_forward
   project        = var.project_id
 
   disk {
@@ -315,7 +329,7 @@ resource "google_compute_region_instance_template" "instance_temp" {
     access_config {}
   }
 
-  tags = ["http-server-8080", "ssh-22", "allow-health-check", "deny"]
+  tags = var.instance_tags
 
   metadata = {
     startup-script = <<-EOT
@@ -348,76 +362,65 @@ EOT
 
 #Create an instance group manager
 resource "google_compute_region_instance_group_manager" "instance_group_manager" {
-  name   = "instance-group-manager1"
+  name   = var.instance_grp_name
   region = var.region
 
   version {
     instance_template = google_compute_region_instance_template.instance_temp.id
-    name              = "primary"
+    name              = var.instance_grp_version_name
   }
 
-  base_instance_name = "vm"
+  base_instance_name = var.instance_grp_base_instance_name
 
   named_port {
-    name = "http"
-    port = 8080
+    name = var.instance_grp_named_port_name
+    port = var.instance_grp_named_port_port
   }
   auto_healing_policies {
     health_check      = google_compute_health_check.database_auth.id
-    initial_delay_sec = 300
+    initial_delay_sec = var.instance_grp_health_chk_delay
   }
 }
 
 #Create an auto scaler
 resource "google_compute_region_autoscaler" "auto_scaler" {
-  name   = "auto-scaler1"
+  name   = var.autoscaler_name
   region = var.region
   target = google_compute_region_instance_group_manager.instance_group_manager.id
 
   autoscaling_policy {
-    max_replicas    = 9
-    min_replicas    = 3
-    cooldown_period = 60
+    max_replicas    = var.autoscaler_max_replicas
+    min_replicas    = var.autoscaler_min_replicas
+    cooldown_period = var.autoscaler_cooldown_period
 
     cpu_utilization {
-      target = 0.05
+      target = var.autoscaler_cpu_util
     }
   }
 }
 
 # Create a health check
 resource "google_compute_health_check" "database_auth" {
-  name                = "database-auth-health-check"
-  check_interval_sec  = 5
-  timeout_sec         = 5
-  healthy_threshold   = 2
-  unhealthy_threshold = 10 # 50 seconds
+  name                = var.health_check_name
+  check_interval_sec  = var.health_check_interval_sec
+  timeout_sec         = var.health_check_timeout_sec
+  healthy_threshold   = var.health_check_healthy_threshold
+  unhealthy_threshold = var.health_check_unhealthy_threshold
 
   http_health_check {
-    request_path = "/healthz"
-    port         = "8080"
+    request_path = var.health_check_request_path
+    port         = var.health_check_port
   }
 }
 
-#firewall rule to allow health check
-resource "google_compute_firewall" "allow_health_check" {
-  name          = "fw-allow-health-check"
-  direction     = "INGRESS"
-  network       = google_compute_network.vpc_network.self_link
-  priority      = 1000
-  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
-  target_tags   = ["allow-health-check"]
-  allow {
-    ports    = ["8080"]
-    protocol = "tcp"
-  }
-}
 
+# Reserve IP addresses for load balancer
 resource "google_compute_global_address" "load_balancer_IP" {
-  name       = "load-balancer-ipaddresses"
-  ip_version = "IPV4"
+  name       = var.lb_global_IP_adresses_name
+  ip_version = var.lb_global_IP_adresses_version
 }
 
+# Create load balancer backend
 resource "google_compute_backend_service" "load_balancer_backend" {
   name                            = "web-backend-service3"
   connection_draining_timeout_sec = 0
@@ -434,13 +437,15 @@ resource "google_compute_backend_service" "load_balancer_backend" {
   }
 }
 
+# Create load balancer URL map
 resource "google_compute_url_map" "url_map" {
-  name            = "web-map-http3"
+  name            = var.lb_url_map_name
   default_service = google_compute_backend_service.load_balancer_backend.id
 }
 
+# Create load balancer https proxy
 resource "google_compute_target_https_proxy" "http_proxy" {
-  name    = "https-lb-proxy3"
+  name    = var.lb_https_proxy_name
   url_map = google_compute_url_map.url_map.id
   ssl_certificates = [
     google_compute_managed_ssl_certificate.lb_default.name
@@ -450,19 +455,21 @@ resource "google_compute_target_https_proxy" "http_proxy" {
   ]
 }
 
+# Create load balancer frontend/ forwarding rule
 resource "google_compute_global_forwarding_rule" "frontend" {
-  name                  = "http-content-rule3"
-  ip_protocol           = "TCP"
-  load_balancing_scheme = "EXTERNAL_MANAGED"
-  port_range            = "443"
+  name                  = var.lb_frontend_name
+  ip_protocol           = var.lb_frontend_ip_protocol
+  load_balancing_scheme = var.lb_frontend_load_balancing_scheme
+  port_range            = var.lb_frontend_port_range
   target                = google_compute_target_https_proxy.http_proxy.id
   ip_address            = google_compute_global_address.load_balancer_IP.id
 }
 
+# Create google managed ssl certificate
 resource "google_compute_managed_ssl_certificate" "lb_default" {
-  name     = "myservice-ssl"
+  name = var.lb_ssl_name
 
   managed {
-    domains = ["csye6225-bhavya-prakash.me"]
+    domains = [var.domain]
   }
 }

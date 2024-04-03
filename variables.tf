@@ -61,9 +61,6 @@ variable "firewall_allow_app_name" {
 variable "firewall_allow_app_direction" {
   description = "firewall_allow_app_port_direction"
 }
-variable "firewall_allow_app_source_ranges" {
-  description = "firewall_allow_app_port_source_ranges"
-}
 variable "firewall_allow_app_destination_ranges" {
   description = "firewall_allow_app_port_destination_range"
 }
@@ -106,7 +103,30 @@ variable "firewall_deny_ssh_ports" {
 variable "firewall_deny_ssh_priority" {
   description = "firewall_deny_ssh_priority"
 }
-variable "instance_name" {
+variable "firewall_allow_healthz_name" {
+  description = "firewall_deny_ssh_port_name"
+}
+variable "firewall_allow_healthz_direction" {
+  description = "firewall_deny_ssh_port_direction"
+}
+variable "firewall_allow_healthz_source_ranges" {
+  description = "firewall_deny_ssh_port_source_ranges"
+}
+
+variable "firewall_allow_healthz_target_tags" {
+  description = "firewall_deny_ssh_port_target_tags"
+}
+
+variable "firewall_allow_healthz_protocol" {
+  description = "firewall_deny_ssh_port_protocol"
+}
+variable "firewall_allow_healthz_ports" {
+  description = "firewall_deny_ssh_ports"
+}
+variable "firewall_allow_healthz_priority" {
+  description = "firewall_deny_ssh_priority"
+}
+variable "instance_temp_name" {
   description = "instance_name"
 }
 variable "instance_machinetype" {
@@ -124,8 +144,41 @@ variable "instance_size" {
 variable "instance_tags" {
   description = "instance_target_tags"
 }
-variable "instance_tags_allow_stopping_for_update" {
-  description = "instance_target_tags_allow_stopping_for_update"
+variable "instance_ip_forward" {
+  description = "instance_ip_forward"
+}
+variable "instance_grp_name" {
+  description = "instance_ip_forward"
+}
+variable "instance_grp_version_name" {
+  description = "instance_ip_forward"
+}
+variable "instance_grp_base_instance_name" {
+  description = "instance_ip_forward"
+}
+variable "instance_grp_named_port_name" {
+  description = "instance_ip_forward"
+}
+variable "instance_grp_named_port_port" {
+  description = "instance_ip_forward"
+}
+variable "instance_grp_health_chk_delay" {
+  description = "instance_ip_forward"
+}
+variable "autoscaler_name" {
+  description = "instance_ip_forward"
+}
+variable "autoscaler_max_replicas" {
+  description = "instance_ip_forward"
+}
+variable "autoscaler_min_replicas" {
+  description = "instance_ip_forward"
+}
+variable "autoscaler_cooldown_period" {
+  description = "instance_ip_forward"
+}
+variable "autoscaler_cpu_util" {
+  description = "instance_ip_forward"
 }
 variable "private_ip_address_name" {
   description = "private_ip_address_name"
@@ -319,5 +372,87 @@ variable "cloud_function_bucket_uniform_bucket_level_access" {
   description = "cloud_function_bucket_uniform_bucket_level_access"
 }
 variable "bucket_prefix" {
+  description = "bucket_prefix"
+}
+
+variable "health_check_name" {
+  description = "cloud_function_verify_email_service_all_traffic_on_latest_revision"
+}
+variable "health_check_timeout_sec" {
+  description = "cloud_function_verify_email_trigger_region"
+}
+variable "health_check_healthy_threshold" {
+  description = "cloud_function_verify_email_event_type"
+}
+variable "health_check_unhealthy_threshold" {
+  description = "cloud_function_verify_email_retry_policy"
+}
+variable "health_check_request_path" {
+  description = "cloud_function_bucket_location"
+}
+variable "health_check_port" {
+  description = "cloud_function_bucket_uniform_bucket_level_access"
+}
+variable "health_check_interval_sec" {
+  description = "bucket_prefix"
+}
+
+variable "lb_global_IP_adresses_name" {
+  description = "cloud_function_bucket_uniform_bucket_level_access"
+}
+variable "lb_global_IP_adresses_version" {
+  description = "bucket_prefix"
+}
+variable "lb_bcknd_name" {
+  description = "cloud_function_verify_email_service_all_traffic_on_latest_revision"
+}
+variable "lb_bcknd_connection_draining_timeout_sec" {
+  description = "cloud_function_verify_email_trigger_region"
+}
+variable "lb_bcknd_load_balancing_scheme" {
+  description = "cloud_function_verify_email_retry_policy"
+}
+variable "lb_bcknd_port_name" {
+  description = "cloud_function_bucket_location"
+}
+variable "lb_bcknd_protocol" {
+  description = "cloud_function_bucket_uniform_bucket_level_access"
+}
+variable "lb_bcknd_session_affinity" {
+  description = "bucket_prefix"
+}
+
+variable "lb_bcknd_timeout_sec" {
+  description = "cloud_function_bucket_uniform_bucket_level_access"
+}
+variable "lb_bcknd_balancing_mode" {
+  description = "bucket_prefix"
+}
+variable "lb_bcknd_capacity_scaler" {
+  description = "bucket_prefix"
+}
+variable "lb_url_map_name" {
+  description = "bucket_prefix"
+}
+variable "lb_https_proxy_name" {
+  description = "bucket_prefix"
+}
+variable "lb_frontend_name" {
+  description = "bucket_prefix"
+}
+
+variable "lb_frontend_ip_protocol" {
+  description = "cloud_function_bucket_uniform_bucket_level_access"
+}
+variable "lb_frontend_load_balancing_scheme" {
+  description = "bucket_prefix"
+}
+variable "lb_frontend_port_range" {
+  description = "bucket_prefix"
+}
+variable "lb_ssl_name" {
+  description = "bucket_prefix"
+}
+variable "domain" {
   description = "bucket_prefix"
 }
