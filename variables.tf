@@ -371,6 +371,9 @@ variable "cloud_function_bucket_location" {
 variable "cloud_function_bucket_uniform_bucket_level_access" {
   description = "cloud_function_bucket_uniform_bucket_level_access"
 }
+variable "cloud_function_vpc_connector_egress_settings" {
+  description = "cloud_function_bucket_uniform_bucket_level_access"
+}
 variable "bucket_prefix" {
   description = "bucket_prefix"
 }
@@ -394,6 +397,9 @@ variable "health_check_port" {
   description = "cloud_function_bucket_uniform_bucket_level_access"
 }
 variable "health_check_interval_sec" {
+  description = "bucket_prefix"
+}
+variable "health_check_log_config" {
   description = "bucket_prefix"
 }
 
@@ -429,6 +435,9 @@ variable "lb_bcknd_balancing_mode" {
   description = "bucket_prefix"
 }
 variable "lb_bcknd_capacity_scaler" {
+  description = "bucket_prefix"
+}
+variable "lb_bcknd_log_config" {
   description = "bucket_prefix"
 }
 variable "lb_url_map_name" {
