@@ -137,6 +137,7 @@ resource "google_sql_database_instance" "my_database_instance" {
     availability_type = var.my_database_instance_availability_type
     disk_type         = var.my_database_instance_disk_type
     disk_size         = var.my_database_instance_disk_size
+   
     ip_configuration {
       ipv4_enabled                                  = var.my_database_instance_ipv4_enabled
       private_network                               = google_compute_network.vpc_network.self_link
@@ -147,6 +148,7 @@ resource "google_sql_database_instance" "my_database_instance" {
       binary_log_enabled = var.my_database_instance_binary_log_enabled
     }
   }
+  encryption_key_name = google_kms_crypto_key.sql_crypto_key.id
   deletion_protection = var.my_database_instance_deletion_protection
   depends_on          = [google_service_networking_connection.connection]
 }
@@ -231,8 +233,12 @@ resource "random_id" "bucket_prefix" {
 #Create a bucket to store cloud function code
 resource "google_storage_bucket" "cloud_function_bucket" {
   name                        = "${random_id.bucket_prefix.hex}-gcf-bucket" # Globally unique
-  location                    = var.cloud_function_bucket_location
+  location                    = var.region
   uniform_bucket_level_access = var.cloud_function_bucket_uniform_bucket_level_access
+  encryption {
+    # Use the CMEK for encryption
+    default_kms_key_name = google_kms_crypto_key.storage_crypto_key.id
+  }
 }
 
 #Zipping Cloud function code
@@ -320,8 +326,12 @@ resource "google_compute_region_instance_template" "instance_temp" {
     source_image = data.google_compute_image.custom_image.self_link
     disk_type    = var.instance_imagetype
     disk_size_gb = var.instance_size
-
+    disk_encryption_key {
+          # Use the CMEK for encryption
+        kms_key_self_link  = google_kms_crypto_key.vm_crypto_key.id
+    }
   }
+  
 
   network_interface {
     network    = google_compute_network.vpc_network.self_link
@@ -478,4 +488,67 @@ resource "google_compute_managed_ssl_certificate" "lb_default" {
   managed {
     domains = [var.domain]
   }
+}
+
+#Create a key ring
+resource "google_kms_key_ring" "my_key_ring" {
+  name     = "my-key-ring1"
+  location = var.region
+}
+
+# Create a CMEK for Virtual Machines
+resource "google_kms_crypto_key" "vm_crypto_key" {
+  name            = "vm-cmek1"
+  key_ring        = google_kms_key_ring.my_key_ring.id
+  rotation_period = "2592000s"
+}
+
+# Create a CMEK for CloudSQL Instances
+resource "google_kms_crypto_key" "sql_crypto_key" {
+  name            = "sql-cmek1"
+  key_ring        = google_kms_key_ring.my_key_ring.id
+  rotation_period = "2592000s"
+}
+
+# Create a CMEK for Cloud Storage Buckets
+resource "google_kms_crypto_key" "storage_crypto_key" {
+  name            = "storage-cmek1"
+  key_ring        = google_kms_key_ring.my_key_ring.id
+  rotation_period = "2592000s"
+}
+
+# To use with cloud sql
+resource "google_project_service_identity" "gcp_sa_cloud_sql" {
+  provider = google-beta
+  service  = "sqladmin.googleapis.com"
+}
+ 
+resource "google_kms_crypto_key_iam_binding" "cloudsql_cmek" {
+  provider      = google-beta
+  crypto_key_id = google_kms_crypto_key.sql_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+ 
+  members = [
+    "serviceAccount:${google_project_service_identity.gcp_sa_cloud_sql.email}",
+  ]
+}
+# To use with cloud storage
+resource "google_kms_crypto_key_iam_binding" "cloudstorage_cmek" {
+  provider      = google-beta
+  crypto_key_id = google_kms_crypto_key.storage_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+ 
+  members = [
+    "serviceAccount:service-97390458279@gs-project-accounts.iam.gserviceaccount.com",
+  ]
+}
+# To use with vm instance
+resource "google_kms_crypto_key_iam_binding" "vm_cmek" {
+  provider      = google-beta
+  crypto_key_id = google_kms_crypto_key.vm_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+ 
+  members = [
+    "serviceAccount:service-97390458279@compute-system.iam.gserviceaccount.com",
+  ]
 }
