@@ -33,7 +33,7 @@ resource "google_compute_route" "webapp_route" {
   tags             = var.webapp_route_tag
 }
 
-# Create firewall allow load balancer on  app port 8080
+# Create firewall allow only load balancer on  app port 8080
 resource "google_compute_firewall" "allow_app" {
   name               = var.firewall_allow_app_name
   network            = google_compute_network.vpc_network.self_link
@@ -58,7 +58,7 @@ resource "google_compute_firewall" "deny_ssh" {
   source_ranges      = var.firewall_deny_ssh_source_ranges
   destination_ranges = var.firewall_deny_ssh_destination_ranges
   target_tags        = var.firewall_deny_ssh_target_tags
-  allow {
+  deny {
     protocol = var.firewall_deny_ssh_protocol
     ports    = var.firewall_deny_ssh_ports
   }
@@ -542,7 +542,7 @@ resource "google_kms_crypto_key_iam_binding" "cloudstorage_cmek" {
   role          = var.crypto_role
 
   members = [
-    "serviceAccount:service-97390458279@gs-project-accounts.iam.gserviceaccount.com",
+    "serviceAccount:${var.bucket_sa_agent}",
   ]
 }
 # To use with vm instance
@@ -552,6 +552,6 @@ resource "google_kms_crypto_key_iam_binding" "vm_cmek" {
   role          = var.crypto_role
 
   members = [
-    "serviceAccount:service-97390458279@compute-system.iam.gserviceaccount.com",
+    "serviceAccount:${var.vm_sa_agent}",
   ]
 }

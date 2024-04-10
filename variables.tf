@@ -489,3 +489,10 @@ variable "gcp_sa_cloud_sql_service" {
 variable "crypto_role" {
   description = "bucket_prefix"
 }
+
+variable "bucket_sa_agent" {
+  description = "bucket_prefix"
+}
+variable "vm_sa_agent" {
+  description = "bucket_prefix"
+}
