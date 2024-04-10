@@ -58,7 +58,7 @@ resource "google_compute_firewall" "deny_ssh" {
   source_ranges      = var.firewall_deny_ssh_source_ranges
   destination_ranges = var.firewall_deny_ssh_destination_ranges
   target_tags        = var.firewall_deny_ssh_target_tags
-  deny {
+  allow {
     protocol = var.firewall_deny_ssh_protocol
     ports    = var.firewall_deny_ssh_ports
   }
@@ -137,7 +137,7 @@ resource "google_sql_database_instance" "my_database_instance" {
     availability_type = var.my_database_instance_availability_type
     disk_type         = var.my_database_instance_disk_type
     disk_size         = var.my_database_instance_disk_size
-   
+
     ip_configuration {
       ipv4_enabled                                  = var.my_database_instance_ipv4_enabled
       private_network                               = google_compute_network.vpc_network.self_link
@@ -239,6 +239,9 @@ resource "google_storage_bucket" "cloud_function_bucket" {
     # Use the CMEK for encryption
     default_kms_key_name = google_kms_crypto_key.storage_crypto_key.id
   }
+  depends_on = [
+    google_kms_crypto_key_iam_binding.cloudstorage_cmek
+  ]
 }
 
 #Zipping Cloud function code
@@ -327,11 +330,11 @@ resource "google_compute_region_instance_template" "instance_temp" {
     disk_type    = var.instance_imagetype
     disk_size_gb = var.instance_size
     disk_encryption_key {
-          # Use the CMEK for encryption
-        kms_key_self_link  = google_kms_crypto_key.vm_crypto_key.id
+      # Use the CMEK for encryption
+      kms_key_self_link = google_kms_crypto_key.vm_crypto_key.id
     }
   }
-  
+
 
   network_interface {
     network    = google_compute_network.vpc_network.self_link
@@ -492,42 +495,42 @@ resource "google_compute_managed_ssl_certificate" "lb_default" {
 
 #Create a key ring
 resource "google_kms_key_ring" "my_key_ring" {
-  name     = "my-key-ring1"
+  name     = var.my_key_ring_name
   location = var.region
 }
 
 # Create a CMEK for Virtual Machines
 resource "google_kms_crypto_key" "vm_crypto_key" {
-  name            = "vm-cmek1"
+  name            = var.vm_crypto_key_name
   key_ring        = google_kms_key_ring.my_key_ring.id
-  rotation_period = "2592000s"
+  rotation_period = var.key_rotation
 }
 
 # Create a CMEK for CloudSQL Instances
 resource "google_kms_crypto_key" "sql_crypto_key" {
-  name            = "sql-cmek1"
+  name            = var.sql_crypto_key_name
   key_ring        = google_kms_key_ring.my_key_ring.id
-  rotation_period = "2592000s"
+  rotation_period = var.key_rotation
 }
 
 # Create a CMEK for Cloud Storage Buckets
 resource "google_kms_crypto_key" "storage_crypto_key" {
-  name            = "storage-cmek1"
+  name            = var.storage_crypto_key
   key_ring        = google_kms_key_ring.my_key_ring.id
-  rotation_period = "2592000s"
+  rotation_period = var.key_rotation
 }
 
 # To use with cloud sql
 resource "google_project_service_identity" "gcp_sa_cloud_sql" {
   provider = google-beta
-  service  = "sqladmin.googleapis.com"
+  service  = var.gcp_sa_cloud_sql_service
 }
- 
+
 resource "google_kms_crypto_key_iam_binding" "cloudsql_cmek" {
   provider      = google-beta
   crypto_key_id = google_kms_crypto_key.sql_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
- 
+  role          = var.crypto_role
+
   members = [
     "serviceAccount:${google_project_service_identity.gcp_sa_cloud_sql.email}",
   ]
@@ -536,8 +539,8 @@ resource "google_kms_crypto_key_iam_binding" "cloudsql_cmek" {
 resource "google_kms_crypto_key_iam_binding" "cloudstorage_cmek" {
   provider      = google-beta
   crypto_key_id = google_kms_crypto_key.storage_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
- 
+  role          = var.crypto_role
+
   members = [
     "serviceAccount:service-97390458279@gs-project-accounts.iam.gserviceaccount.com",
   ]
@@ -546,8 +549,8 @@ resource "google_kms_crypto_key_iam_binding" "cloudstorage_cmek" {
 resource "google_kms_crypto_key_iam_binding" "vm_cmek" {
   provider      = google-beta
   crypto_key_id = google_kms_crypto_key.vm_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
- 
+  role          = var.crypto_role
+
   members = [
     "serviceAccount:service-97390458279@compute-system.iam.gserviceaccount.com",
   ]

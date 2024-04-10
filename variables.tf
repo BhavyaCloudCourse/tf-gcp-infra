@@ -468,3 +468,24 @@ variable "lb_ssl_name" {
 variable "domain" {
   description = "bucket_prefix"
 }
+variable "my_key_ring_name" {
+  description = "bucket_prefix"
+}
+variable "vm_crypto_key_name" {
+  description = "bucket_prefix"
+}
+variable "sql_crypto_key_name" {
+  description = "bucket_prefix"
+}
+variable "storage_crypto_key" {
+  description = "bucket_prefix"
+}
+variable "key_rotation" {
+  description = "bucket_prefix"
+}
+variable "gcp_sa_cloud_sql_service" {
+  description = "bucket_prefix"
+}
+variable "crypto_role" {
+  description = "bucket_prefix"
+}
